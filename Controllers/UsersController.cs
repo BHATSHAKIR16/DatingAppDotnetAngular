@@ -1,13 +1,16 @@
 ﻿using API.Data;
 using API.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion.Internal;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace API.Controllers
 {
-    [ApiController]
-    [Route("api/[controller]")] //api/Users
-    public class UsersController : ControllerBase
+    [Authorize]
+    public class UsersController : BaseController
     {
         //create this field so that datacontext is available throughtout the class and not only in the constructor
         private readonly DataContext _context;
@@ -16,6 +19,7 @@ namespace API.Controllers
             _context = context;
         }
 
+        [AllowAnonymous]
         [HttpGet]
         public async Task<IActionResult> getUsers()
         {
@@ -28,6 +32,22 @@ namespace API.Controllers
         {
             var user = await _context.Users.FindAsync(id);
             return Ok(user);
+        }
+
+        [HttpPost("register")]
+        public async Task<IActionResult> register(string username, string password)
+        {
+            using var hmac = new HMACSHA512();
+
+            var users = new AppUser()
+            {
+                UserName = username,
+                PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password)),
+                PasswordSalt = hmac.Key
+            };
+            _context.Users.Add(users);
+            await _context.SaveChangesAsync();
+            return Ok(users);
         }
     }
 }
